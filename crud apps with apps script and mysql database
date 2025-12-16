@@ -1,0 +1,119 @@
+function setDBCredentials() {
+  PropertiesService.getScriptProperties().setProperties({
+DB_URL: "jdbc:mysql://host:3306/database",
+    DB_USER: "user",
+    DB_PASS: "password"
+  });
+}
+function getConnection() {
+  const props = PropertiesService.getScriptProperties();
+  return Jdbc.getConnection(
+    props.getProperty("DB_URL"),
+    props.getProperty("DB_USER"),
+    props.getProperty("DB_PASS")
+  );
+}
+/************* WEB APP *************/
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('index')
+    .setTitle('Secure CRUD App')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+
+/************* READ *************/
+function getUsers() {
+  const conn = getConnection();
+  const stmt = conn.createStatement();
+  const rs = stmt.executeQuery("SELECT * FROM users ORDER BY id DESC");
+
+
+  const users = [];
+  while (rs.next()) {
+    users.push({
+      id: rs.getInt("id"),
+      name: rs.getString("name"),
+      email: rs.getString("email"),
+      age: rs.getInt("age"),
+      gender: rs.getString("gender")
+    });
+  }
+
+
+  rs.close();
+  stmt.close();
+  conn.close();
+  return users;
+}
+
+
+/************* CREATE *************/
+function addUser(name, email, age, gender) {
+  const conn = getConnection();
+  const stmt = conn.prepareStatement(
+    "INSERT INTO users (name, email, age, gender) VALUES (?, ?, ?, ?)"
+  );
+
+
+  stmt.setString(1, name);
+  stmt.setString(2, email);
+  stmt.setInt(3, Number(age) || 0);
+  stmt.setString(4, gender);
+
+
+  stmt.execute();
+  stmt.close();
+  conn.close();
+}
+
+
+/************* UPDATE *************/
+function updateUser(id, name, email, age, gender) {
+  const conn = getConnection();
+  const stmt = conn.prepareStatement(
+    "UPDATE users SET name=?, email=?, age=?, gender=? WHERE id=?"
+  );
+
+
+  stmt.setString(1, name);
+  stmt.setString(2, email);
+  stmt.setInt(3, Number(age) || 0);
+  stmt.setString(4, gender);
+  stmt.setInt(5, id);
+
+
+  stmt.execute();
+  stmt.close();
+  conn.close();
+}
+
+
+/************* DELETE *************/
+function deleteUser(id) {
+  const conn = getConnection();
+  const stmt = conn.prepareStatement(
+    "DELETE FROM users WHERE id=?"
+  );
+
+
+  stmt.setInt(1, id);
+  stmt.execute();
+  stmt.close();
+  conn.close();
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
