@@ -1,3 +1,15 @@
+create database database_name;
+use database_name
+CREATE TABLE table name (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100),
+  email VARCHAR(100),
+  age INT,
+  gender VARCHAR(10)
+);
+
+
+
 function setDBCredentials() {
   PropertiesService.getScriptProperties().setProperties({
 DB_URL: "jdbc:mysql://host:3306/database",
@@ -101,6 +113,7 @@ function deleteUser(id) {
   stmt.close();
   conn.close();
 }
+
 
 
 
