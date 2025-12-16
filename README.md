@@ -2,4 +2,4 @@ his project demonstrates how to build a full CRUD (Create, Read, Update, Delete)
 📺 YouTube Tutorial
 https://www.youtube.com/@automatewithmuluneh
 🌐 Live Demo 
----
+https://github.com/Muluneh-app/apps-script-crud.git
