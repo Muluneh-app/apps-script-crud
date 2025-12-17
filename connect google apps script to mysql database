@@ -1,0 +1,26 @@
+
+
+
+
+function setDBCredentials() {
+  PropertiesService.getScriptProperties().setProperties({
+DB_URL: "jdbc:mysql://host:3306/database",
+    DB_USER: "user",
+    DB_PASS: "password"
+  });
+}
+function getConnection() {
+  const props = PropertiesService.getScriptProperties();
+  return Jdbc.getConnection(
+    props.getProperty("DB_URL"),
+    props.getProperty("DB_USER"),
+    props.getProperty("DB_PASS")
+  );
+}
+
+function testDBConnection() {
+  const conn = getConnection();
+  Logger.log("✅ CONNECTED");
+  conn.close();
+}
+
