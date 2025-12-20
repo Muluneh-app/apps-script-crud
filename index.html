@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+  /* GENERAL STYLES */
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #74ebd5, #ACB6E5);
+    margin: 0;
+    padding: 20px;
+    color: #333;
+  }
+
+  h1 {
+    text-align: center;
+    color: #fff;
+    margin-bottom: 20px;
+    text-shadow: 1px 1px 4px rgba(0,0,0,0.2);
+  }
+
+  /* FORM STYLES */
+  form {
+    background: #ffffffee;
+    padding: 30px;
+    max-width: 500px;
+    margin: auto;
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    transition: transform 0.3s ease;
+  }
+  form:hover {
+    transform: translateY(-5px);
+  }
+
+  input, select, button {
+    width: 100%;
+    padding: 12px;
+    margin-top: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: 0.3s;
+  }
+
+  input:focus, select:focus {
+    outline: none;
+    border-color: #74ebd5;
+    box-shadow: 0 0 8px rgba(116,235,213,0.4);
+  }
+
+  button {
+    background: linear-gradient(45deg, #74ebd5, #ACB6E5);
+    border: none;
+    color: #fff;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+  }
+  button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  }
+
+  /* TABLE STYLES */
+  table {
+    width: 100%;
+    margin-top: 30px;
+    border-collapse: collapse;
+    background: #ffffffee;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  }
+
+  th, td {
+    padding: 12px 15px;
+    text-align: center;
+  }
+
+  th {
+    background: linear-gradient(45deg, #74ebd5, #ACB6E5);
+    color: #fff;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+
+  tr:nth-child(even) {
+    background: rgba(0,0,0,0.03);
+  }
+
+  tr:hover {
+    background: rgba(116,235,213,0.2);
+  }
+
+  /* BUTTONS IN TABLE */
+  td button {
+    width: auto;
+    padding: 6px 12px;
+    margin: 0 4px;
+    border-radius: 6px;
+    font-size: 14px;
+    display: inline-block;
+  }
+
+  td button:first-child {
+    background: #ff7e67; /* Edit */
+    color: #fff;
+  }
+
+  td button:last-child {
+    background: #ff4e4e; /* Delete */
+    color: #fff;
+  }
+
+  td button:hover {
+    opacity: 0.85;
+  }
+</style>
+
+</head>
+
+<body>
+
+<h1>Secure CRUD App</h1>
+
+<form onsubmit="saveUser(event)">
+  <input type="hidden" id="id">
+  <input type="text" id="name" placeholder="Name" required>
+  <input type="email" id="email" placeholder="Email" required>
+  <input type="number" id="age" placeholder="Age">
+  <select id="gender">
+    <option value="">Select Gender</option>
+    <option>Male</option>
+    <option>Female</option>
+  </select>
+  <button type="submit">Save</button>
+</form>
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Email</th>
+      <th>Age</th>
+      <th>Gender</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody id="userList"></tbody>
+</table>
+
+<script>
+function loadUsers() {
+  google.script.run.withSuccessHandler(users => {
+    const tbody = document.getElementById("userList");
+    tbody.innerHTML = ""; // Clear existing rows
+
+    users.forEach(u => {
+      const tr = document.createElement("tr");
+
+      // Table cells except action
+      tr.innerHTML = `
+        <td>${u.name}</td>
+        <td>${u.email}</td>
+        <td>${u.age}</td>
+        <td>${u.gender}</td>
+        <td></td>
+      `;
+
+      // Put Edit and Delete in one row using a span or inline
+      tr.querySelector("td:last-child").innerHTML =
+        `<button style="margin-right:5px;" onclick='editUser(${JSON.stringify(u)})'>Edit</button><button onclick='deleteUser(${u.id})'>Delete</button>`;
+
+      tbody.appendChild(tr);
+    });
+  }).getUsers();
+}
+
+
+
+function saveUser(e) {
+  e.preventDefault();
+
+  const id = document.getElementById("id").value;
+  const name = document.getElementById("name").value;
+  const email = document.getElementById("email").value;
+  const age = document.getElementById("age").value;
+  const gender = document.getElementById("gender").value;
+
+  if (id) {
+    google.script.run.withSuccessHandler(resetForm)
+      .updateUser(id, name, email, age, gender);
+  } else {
+    google.script.run.withSuccessHandler(resetForm)
+      .addUser(name, email, age, gender);
+  }
+}
+
+function editUser(u) {
+  id.value = u.id;
+  name.value = u.name;
+  email.value = u.email;
+  age.value = u.age;
+  gender.value = u.gender;
+}
+
+function deleteUser(id) {
+  if (confirm("Delete this user?")) {
+    google.script.run.withSuccessHandler(loadUsers)
+      .deleteUser(id);
+  }
+}
+
+function resetForm() {
+  document.querySelector("form").reset();
+  document.getElementById("id").value = "";
+  loadUsers();
+}
+
+document.addEventListener("DOMContentLoaded", loadUsers);
+</script>
+
+</body>
+</html>
+<!-- 
+function getConnection() {
+  const props = PropertiesService.getScriptProperties();
+  return Jdbc.getConnection(
+    props.getProperty("DB_URL"),
+    props.getProperty("DB_USER"),
+    props.getProperty("DB_PASS")
+  );
+}
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('index')
+    .setTitle('Secure CRUD App')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+/************* READ *************/
+function getUsers() {
+  const conn = getConnection();
+  const stmt = conn.createStatement();
+  const rs = stmt.executeQuery("SELECT * FROM users ORDER BY id DESC");
+
+  const users = [];
+  while (rs.next()) {
+    users.push({
+      id: rs.getInt("id"),
+      name: rs.getString("name"),
+      email: rs.getString("email"),
+      age: rs.getInt("age"),
+      gender: rs.getString("gender")
+    });
+  }
+
+  rs.close();
+  stmt.close();
+  conn.close();
+  return users;
+}
+
+/************* CREATE *************/
+function addUser(name, email, age, gender) {
+  const conn = getConnection();
+  const stmt = conn.prepareStatement(
+    "INSERT INTO users (name, email, age, gender) VALUES (?, ?, ?, ?)"
+  );
+
+  stmt.setString(1, name);
+  stmt.setString(2, email);
+  stmt.setInt(3, Number(age) || 0);
+  stmt.setString(4, gender);
+
+  stmt.execute();
+  stmt.close();
+  conn.close();
+}
+
+/************* UPDATE *************/
+function updateUser(id, name, email, age, gender) {
+  const conn = getConnection();
+  const stmt = conn.prepareStatement(
+    "UPDATE users SET name=?, email=?, age=?, gender=? WHERE id=?"
+  );
+
+  stmt.setString(1, name);
+  stmt.setString(2, email);
+  stmt.setInt(3, Number(age) || 0);
+  stmt.setString(4, gender);
+  stmt.setInt(5, id);
+
+  stmt.execute();
+  stmt.close();
+  conn.close();
+}
+
+/************* DELETE *************/
+function deleteUser(id) {
+  const conn = getConnection();
+  const stmt = conn.prepareStatement(
+    "DELETE FROM users WHERE id=?"
+  );
+
+  stmt.setInt(1, id);
+  stmt.execute();
+  stmt.close();
+  conn.close();
+}
+/*create database database_name;
+use database_name
+CREATE TABLE table name (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100),
+  email VARCHAR(100),
+  age INT,
+  gender VARCHAR(10)
+);
+*/
+-->
+
+
+
