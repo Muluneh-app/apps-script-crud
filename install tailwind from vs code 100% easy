@@ -20,4 +20,66 @@ npm init -y
 This creates a package.json file (needed to manage Tailwind and other packages).
 Step 4: Install Tailwind CSS
 
-Run:
+Run:npm install -D tailwindcss@3.4.17 postcss autoprefixer
+create two files:
+
+tailwind.config.js → Tailwind configuration
+postcss.config.js → PostCSS setup
+Step 5: Configure Tailwind
+Open tailwind.config.js and set the content paths so Tailwind knows where to look for class names:
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: ["./*.html"], // or "./src/**/*.{html,js}" if you have src folder
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+}
+Step 6: Create CSS File
+Create a CSS file (e.g., style.css).
+Add Tailwind directives:
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+      Step 7: Build Tailwind CSS
+In the terminal, run:
+npx tailwindcss -i ./style.css -o ./output.css --watch
+-i → input file (style.css)
+-o → output file (output.css)
+--watch → automatically rebuild on changes
+Now, whenever you save your CSS or HTML, Tailwind will update automatically. ✅
+         Step 8: Link Output CSS in HTML
+
+In your HTML file:<link href="output.css" rel="stylesheet">
+Optional VS Code Tips
+
+Install Tailwind CSS IntelliSense extension → gives autocomplete for Tailwind classes.
+
+Use Live Server extension → refresh browser automatically when you save HTML.
+
+💡 Tip: The --watch flag in Step 7 is key — it replaces the need to manually run npm run build every time you change a class.
+          Step 9: create index.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link href="output.css" rel="stylesheet">
+</head>
+<body>
+<body class="min-h-screen flex items-center justify-center bg-slate-600">
+ <div class="bg-orange-600 p-8 rounded-xl shadow-lg w-96">
+ <h2 class="text-2xl font-bold text-center mb-6">Login</h2>
+<input type="email" placeholder="Email"
+ class="w-full mb-4 px-4 py-3 border rounded-lg">
+ <input type="password" placeholder="Password"
+ class="w-full mb-4 px-4 py-3 border rounded-lg">
+ <button
+ class="w-full bg-blue-600 text-white py-3 rounded-lg">
+ Login
+ </button>
+ </div>
+</body>
+</html>
+
