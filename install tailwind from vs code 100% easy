@@ -1,0 +1,23 @@
+                 Step 1: Install Node.js & npm
+
+Tailwind requires Node.js to work.
+
+1.Go to Node.js official website
+2.Download the LTS version (recommended for stability).
+3.Install it.
+4.Verify installation by opening VS Code terminal (Ctrl + ~) and typing:
+node -v
+npm -v
+        Step 2: Create a Project Folder
+
+Open VS Code.
+Create a folder for your project (e.g., mule).
+Open this folder in VS Code (File → Open Folder).
+     Step 3: Initialize npm
+
+In the VS Code terminal, run:
+npm init -y
+This creates a package.json file (needed to manage Tailwind and other packages).
+Step 4: Install Tailwind CSS
+
+Run:
