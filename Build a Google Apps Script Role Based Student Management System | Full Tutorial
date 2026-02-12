@@ -1,0 +1,565 @@
+use  database;
+-- Users Table
+CREATE TABLE users (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(100) NOT NULL UNIQUE,
+  password VARCHAR(255) NOT NULL,
+  role ENUM('admin','staff') DEFAULT 'staff'
+);
+
+
+-- Students Table
+CREATE TABLE students (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(100),
+  phone VARCHAR(50),
+  course VARCHAR(100)
+);
+                                         Back-end
+
+
+function getConnection() {
+  const props = PropertiesService.getScriptProperties();
+  return Jdbc.getConnection(
+    props.getProperty("DB_URL"),
+    props.getProperty("DB_USER"),
+    props.getProperty("DB_PASS")
+  );
+}
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile("index")
+    .setTitle("Student Management System")
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+
+// ===== USER SESSION =====
+function getCurrentUser() {
+  return PropertiesService.getUserProperties().getProperty("currentUser") || null;
+}
+
+
+// Get Role of Current User
+function getCurrentUserRole() {
+  const email = getCurrentUser();
+  if(!email) return null;
+  const conn = getConnection();
+  const stmt = conn.prepareStatement("SELECT role FROM users WHERE email=?");
+  stmt.setString(1,email);
+  const rs = stmt.executeQuery();
+  let role = null;
+  if(rs.next()) role = rs.getString("role");
+  rs.close(); stmt.close(); conn.close();
+  return role;
+}
+
+
+// Login
+function login(email,password){
+  const conn = getConnection();
+  const stmt = conn.prepareStatement("SELECT * FROM users WHERE email=? AND password=?");
+  stmt.setString(1,email);
+  stmt.setString(2,password);
+  const rs = stmt.executeQuery();
+  const success = rs.next();
+  rs.close(); stmt.close(); conn.close();
+  if(success) PropertiesService.getUserProperties().setProperty("currentUser",email);
+  return { success };
+}
+
+
+// Logout
+function logoutUser() {
+  PropertiesService.getUserProperties().deleteProperty("currentUser");
+}
+
+
+// Register User
+function registerUser(user){
+  const conn = getConnection();
+  let stmt = conn.prepareStatement("SELECT * FROM users WHERE email=?");
+  stmt.setString(1,user.email);
+  let rs = stmt.executeQuery();
+  if(rs.next()){ rs.close(); stmt.close(); conn.close(); return "Email already exists!"; }
+  rs.close(); stmt.close();
+
+
+  stmt = conn.prepareStatement("INSERT INTO users (name,email,password,role) VALUES (?,?,?,?)");
+  stmt.setString(1,user.name);
+  stmt.setString(2,user.email);
+  stmt.setString(3,user.password);
+  stmt.setString(4,user.role);
+  stmt.execute();
+  stmt.close(); conn.close();
+  return "User registered successfully!";
+}
+
+
+// Password Reset
+function resetPassword(email){
+  const temp = generateTempPassword();
+  const conn = getConnection();
+  const stmt = conn.prepareStatement("UPDATE users SET password=? WHERE email=?");
+  stmt.setString(1,temp);
+  stmt.setString(2,email);
+  const updated = stmt.executeUpdate();
+  stmt.close(); conn.close();
+
+
+  if(updated>0){
+    MailApp.sendEmail(email,"Password Reset","Your temporary password is: "+temp);
+    return "Temporary password sent to your email!";
+  } else return "Email not found!";
+}
+
+
+// Generate Temporary Password
+function generateTempPassword(length=8){
+  const chars="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let pass="";
+  for(let i=0;i<length;i++) pass+=chars.charAt(Math.floor(Math.random()*chars.length));
+  return pass;
+}
+
+
+// Change Password
+function updatePassword(current,newPass){
+  const email = getCurrentUser();
+  if(!email) return "You are not logged in!";
+  const conn = getConnection();
+  let stmt = conn.prepareStatement("SELECT * FROM users WHERE email=? AND password=?");
+  stmt.setString(1,email);
+  stmt.setString(2,current);
+  const rs = stmt.executeQuery();
+  if(!rs.next()){ rs.close(); stmt.close(); conn.close(); return "Current password incorrect!"; }
+  rs.close(); stmt.close();
+  stmt = conn.prepareStatement("UPDATE users SET password=? WHERE email=?");
+  stmt.setString(1,newPass);
+  stmt.setString(2,email);
+  stmt.execute();
+  stmt.close(); conn.close();
+  return "Password updated successfully!";
+}
+
+
+// ===== STUDENTS CRUD =====
+function getStudents(){
+  const conn = getConnection();
+  const stmt = conn.prepareStatement("SELECT * FROM students ORDER BY id ASC");
+  const rs = stmt.executeQuery();
+  const students = [];
+  while(rs.next()){
+    students.push({
+      id: rs.getInt("id"),
+      name: rs.getString("name"),
+      email: rs.getString("email"),
+      phone: rs.getString("phone"),
+      course: rs.getString("course")
+    });
+  }
+  rs.close(); stmt.close(); conn.close();
+  return students;
+}
+
+
+function addStudent(s){
+  const conn = getConnection();
+  const stmt = conn.prepareStatement("INSERT INTO students (name,email,phone,course) VALUES (?,?,?,?)");
+  stmt.setString(1,s.name);
+  stmt.setString(2,s.email);
+  stmt.setString(3,s.phone);
+  stmt.setString(4,s.course);
+  stmt.execute();
+  stmt.close(); conn.close();
+  return "Student added successfully!";
+}
+
+
+function getStudentById(id){
+  const conn = getConnection();
+  const stmt = conn.prepareStatement("SELECT * FROM students WHERE id=?");
+  stmt.setInt(1,id);
+  const rs = stmt.executeQuery();
+  let student = null;
+  if(rs.next()){
+    student = {
+      id: rs.getInt("id"),
+      name: rs.getString("name"),
+      email: rs.getString("email"),
+      phone: rs.getString("phone"),
+      course: rs.getString("course")
+    };
+  }
+  rs.close(); stmt.close(); conn.close();
+  return student;
+}
+
+
+function updateStudent(s){
+  const conn = getConnection();
+  const stmt = conn.prepareStatement("UPDATE students SET name=?, email=?, phone=?, course=? WHERE id=?");
+  stmt.setString(1,s.name);
+  stmt.setString(2,s.email);
+  stmt.setString(3,s.phone);
+  stmt.setString(4,s.course);
+  stmt.setInt(5,s.id);
+  stmt.execute();
+  stmt.close(); conn.close();
+  return "Student updated successfully!";
+}
+
+
+function deleteStudent(id){
+  const conn = getConnection();
+  const stmt = conn.prepareStatement("DELETE FROM students WHERE id=?");
+  stmt.setInt(1,id);
+  stmt.execute();
+  stmt.close(); conn.close();
+  return "Student deleted successfully!";
+
+}
+                                     Front-end
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Student Management System</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-300 min-h-screen">
+
+
+<!-- LOGIN PAGE -->
+<div id="loginPage" class="min-h-screen flex items-center justify-center hidden">
+  <div class="bg-white p-8 rounded shadow w-full max-w-md">
+    <h2 class="text-2xl font-bold text-center mb-6">Login</h2>
+    <input id="loginEmail" type="email" placeholder="Email" class="w-full mb-3 p-3 border rounded" />
+    <input id="loginPassword" type="password" placeholder="Password" class="w-full mb-4 p-3 border rounded" />
+    <button onclick="login()" class="w-full bg-blue-600 text-white p-3 rounded hover:bg-blue-700">Login</button>
+    <p class="text-center mt-3">
+      <a href="#" onclick="showRegister()" class="text-green-600 hover:underline text-sm">Register</a> |
+      <a href="#" onclick="showResetPassword()" class="text-orange-600 hover:underline text-sm">Forgot Password?</a>
+    </p>
+    <p id="loginMsg" class="text-red-500 text-center mt-3"></p>
+  </div>
+</div>
+
+
+<!-- REGISTER PAGE -->
+<div id="registerPage" class="min-h-screen flex items-center justify-center hidden">
+  <div class="bg-white p-8 rounded shadow w-full max-w-md">
+    <h2 class="text-2xl font-bold text-center mb-6">Register</h2>
+    <input id="regName" type="text" placeholder="Full Name" class="w-full mb-3 p-3 border rounded" />
+    <input id="regEmail" type="email" placeholder="Email" class="w-full mb-3 p-3 border rounded" />
+    <input id="regPassword" type="password" placeholder="Password" class="w-full mb-3 p-3 border rounded" />
+    <select id="regRole" class="w-full mb-4 p-3 border rounded">
+      <option value="staff">Staff</option>
+      <option value="admin">Admin</option>
+    </select>
+    <button onclick="register()" class="w-full bg-green-600 text-white p-3 rounded hover:bg-green-700">Register</button>
+    <p class="text-center mt-3">
+      <a href="#" onclick="backToLogin()" class="text-blue-600 hover:underline text-sm">Back to Login</a>
+    </p>
+    <p id="registerMsg" class="text-green-600 text-center mt-3"></p>
+  </div>
+</div>
+
+
+<!-- RESET PASSWORD PAGE -->
+<div id="resetPage" class="min-h-screen flex items-center justify-center hidden">
+  <div class="bg-white p-8 rounded shadow w-full max-w-md">
+    <h2 class="text-2xl font-bold text-center mb-6">Reset Password</h2>
+    <input id="resetEmail" type="email" placeholder="Enter your Email" class="w-full mb-4 p-3 border rounded" />
+    <button onclick="sendResetLink()" class="w-full bg-orange-500 text-white p-3 rounded hover:bg-orange-600">Send Reset Link</button>
+    <p id="resetMsg" class="text-green-600 text-center mt-3"></p>
+    <p class="text-center mt-3">
+      <a href="#" onclick="backToLogin()" class="text-blue-600 hover:underline text-sm">Back to Login</a>
+    </p>
+  </div>
+</div>
+
+
+<!-- DASHBOARD -->
+<div id="dashboard" class="hidden min-h-screen">
+  <nav class="bg-blue-600 text-white p-4 flex justify-between">
+    <h1 class="text-xl font-bold">Student Management System</h1>
+    <div>
+      <span id="userRole" class="mr-4 font-semibold"></span>
+      <button onclick="logout()" class="bg-red-500 px-4 py-2 rounded">Logout</button>
+    </div>
+  </nav>
+
+
+  <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+    <!-- ADD / EDIT FORM (Only Admin) -->
+    <div id="studentForm" class="bg-white p-6 rounded shadow hidden">
+      <h2 class="text-xl font-bold mb-4" id="formTitle">Add Student</h2>
+      <input type="hidden" id="studentId" />
+      <input id="name" type="text" placeholder="Full Name" class="w-full mb-3 p-3 border rounded" />
+      <input id="email" type="email" placeholder="Email" class="w-full mb-3 p-3 border rounded" />
+      <input id="phone" type="text" placeholder="Phone" class="w-full mb-3 p-3 border rounded" />
+      <input id="course" type="text" placeholder="Course" class="w-full mb-4 p-3 border rounded" />
+      <button onclick="saveStudent()" class="w-full bg-green-600 text-white p-3 rounded hover:bg-green-700">Save Student</button>
+      <p id="formMsg" class="text-green-600 text-center mt-3"></p>
+    </div>
+
+
+    <!-- STUDENT LIST -->
+    <div class="bg-white p-6 rounded shadow col-span-2">
+      <h2 class="text-xl font-bold mb-4">Students List</h2>
+      <table class="w-full border">
+        <thead>
+          <tr class="bg-gray-200">
+            <th class="p-2 border">#</th>
+            <th class="p-2 border">Name</th>
+            <th class="p-2 border">Email</th>
+            <th class="p-2 border">Phone</th>
+            <th class="p-2 border">Course</th>
+            <th class="p-2 border">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="studentTable"></tbody>
+      </table>
+
+
+      <!-- CHANGE PASSWORD FORM -->
+      <div class="bg-white p-6 rounded shadow mt-6">
+        <h2 class="text-xl font-bold mb-4">Change Password</h2>
+        <input id="currentPassword" type="password" placeholder="Current Password" class="w-full mb-3 p-3 border rounded" />
+        <input id="newPassword" type="password" placeholder="New Password" class="w-full mb-3 p-3 border rounded" />
+        <input id="confirmPassword" type="password" placeholder="Confirm New Password" class="w-full mb-4 p-3 border rounded" />
+        <button onclick="changePassword()" class="w-full bg-purple-600 text-white p-3 rounded hover:bg-purple-700">Update Password</button>
+        <p id="passwordMsg" class="text-green-600 text-center mt-3"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+let currentRole = "";
+
+
+window.onload = function() {
+  google.script.run.withSuccessHandler(user => {
+    if(user) {
+      showDashboard();
+    } else {
+      document.getElementById("loginPage").classList.remove("hidden");
+    }
+  }).getCurrentUser();
+}
+
+
+// ===== AUTH =====
+function login() {
+  const email = document.getElementById("loginEmail").value.trim();
+  const password = document.getElementById("loginPassword").value.trim();
+  if(!email || !password) {
+    document.getElementById("loginMsg").innerText = "Email and Password required!";
+    return;
+  }
+  google.script.run.withSuccessHandler(res => {
+    if(res.success){
+      google.script.run.withSuccessHandler(role=>{
+        currentRole = role;
+        document.getElementById("userRole").innerText = "Role: "+role.toUpperCase();
+        showDashboard();
+      }).getCurrentUserRole();
+    } else {
+      document.getElementById("loginMsg").innerText = "Invalid login!";
+    }
+  }).login(email,password);
+}
+
+
+function logout() {
+  google.script.run.withSuccessHandler(()=>{
+    document.getElementById("dashboard").classList.add("hidden");
+    document.getElementById("loginPage").classList.remove("hidden");
+    resetForm();
+    document.getElementById("loginEmail").value="";
+    document.getElementById("loginPassword").value="";
+    document.getElementById("loginMsg").innerText="";
+    document.getElementById("studentTable").innerHTML="";
+  }).logoutUser();
+}
+
+
+// ===== REGISTER =====
+function showRegister(){
+  document.getElementById("loginPage").classList.add("hidden");
+  document.getElementById("registerPage").classList.remove("hidden");
+  document.getElementById("regName").value="";
+  document.getElementById("regEmail").value="";
+  document.getElementById("regPassword").value="";
+  document.getElementById("regRole").value="staff";
+  document.getElementById("registerMsg").innerText="";
+}
+
+
+function register(){
+  const user = {
+    name: document.getElementById("regName").value.trim(),
+    email: document.getElementById("regEmail").value.trim(),
+    password: document.getElementById("regPassword").value.trim(),
+    role: document.getElementById("regRole").value
+  };
+  if(!user.name || !user.email || !user.password){
+    document.getElementById("registerMsg").innerText="All fields required!";
+    return;
+  }
+  google.script.run.withSuccessHandler(msg=>{
+    document.getElementById("registerMsg").innerText = msg;
+    if(msg.includes("success")) backToLogin();
+  }).registerUser(user);
+}
+
+
+function backToLogin(){
+  document.getElementById("registerPage").classList.add("hidden");
+  document.getElementById("resetPage").classList.add("hidden");
+  document.getElementById("loginPage").classList.remove("hidden");
+}
+
+
+// ===== PASSWORD RESET =====
+function showResetPassword(){
+  document.getElementById("loginPage").classList.add("hidden");
+  document.getElementById("resetPage").classList.remove("hidden");
+  document.getElementById("resetEmail").value="";
+  document.getElementById("resetMsg").innerText="";
+}
+
+
+function sendResetLink(){
+  const email = document.getElementById("resetEmail").value.trim();
+  if(!email){
+    document.getElementById("resetMsg").innerText="Email is required!";
+    return;
+  }
+  google.script.run.withSuccessHandler(msg=>{
+    document.getElementById("resetMsg").innerText = msg;
+  }).resetPassword(email);
+}
+
+
+// ===== DASHBOARD =====
+function showDashboard(){
+  document.getElementById("loginPage").classList.add("hidden");
+  document.getElementById("registerPage").classList.add("hidden");
+  document.getElementById("resetPage").classList.add("hidden");
+  document.getElementById("dashboard").classList.remove("hidden");
+
+
+  // Only show student form if admin
+  if(currentRole==="admin") document.getElementById("studentForm").classList.remove("hidden");
+  else document.getElementById("studentForm").classList.add("hidden");
+
+
+  loadStudents();
+}
+
+
+// ===== STUDENTS CRUD =====
+function saveStudent(){
+  const id = document.getElementById("studentId").value;
+  const data = {
+    id: id ? parseInt(id) : null,
+    name: document.getElementById("name").value.trim(),
+    email: document.getElementById("email").value.trim(),
+    phone: document.getElementById("phone").value.trim(),
+    course: document.getElementById("course").value.trim()
+  };
+  if(!data.name || !data.email){
+    document.getElementById("formMsg").innerText="Name and Email required!";
+    return;
+  }
+  if(id){
+    google.script.run.withSuccessHandler(msg=>{ document.getElementById("formMsg").innerText=msg; resetForm(); loadStudents(); }).updateStudent(data);
+  } else {
+    google.script.run.withSuccessHandler(msg=>{ document.getElementById("formMsg").innerText=msg; resetForm(); loadStudents(); }).addStudent(data);
+  }
+}
+
+
+function loadStudents(){
+  google.script.run.withSuccessHandler(students=>{
+    const table = document.getElementById("studentTable");
+    table.innerHTML="";
+    students.forEach((s,i)=>{
+      let actions = "";
+      if(currentRole==="admin"){
+        actions=`<button onclick="editStudent(${s.id})" class="bg-yellow-500 text-white px-3 py-1 rounded">Edit</button>
+                 <button onclick="deleteStudent(${s.id})" class="bg-red-600 text-white px-3 py-1 rounded">Delete</button>`;
+      }
+      table.innerHTML+=`<tr>
+        <td class="p-2 border">${i+1}</td>
+        <td class="p-2 border">${s.name}</td>
+        <td class="p-2 border">${s.email}</td>
+        <td class="p-2 border">${s.phone}</td>
+        <td class="p-2 border">${s.course}</td>
+        <td class="p-2 border space-x-2">${actions}</td>
+      </tr>`;
+    });
+  }).getStudents();
+}
+
+
+function editStudent(id){
+  google.script.run.withSuccessHandler(s=>{
+    if(!s) return alert("Student not found!");
+    document.getElementById("studentId").value = s.id;
+    document.getElementById("name").value = s.name;
+    document.getElementById("email").value = s.email;
+    document.getElementById("phone").value = s.phone;
+    document.getElementById("course").value = s.course;
+    document.getElementById("formTitle").innerText="Edit Student";
+  }).getStudentById(id);
+}
+
+
+function deleteStudent(id){
+  if(!confirm("Are you sure you want to delete this student?")) return;
+  google.script.run.withSuccessHandler(msg=>{ alert(msg); loadStudents(); }).deleteStudent(id);
+}
+
+
+function resetForm(){
+  document.getElementById("studentId").value="";
+  document.getElementById("name").value="";
+  document.getElementById("email").value="";
+  document.getElementById("phone").value="";
+  document.getElementById("course").value="";
+  document.getElementById("formTitle").innerText="Add Student";
+  document.getElementById("formMsg").innerText="";
+}
+
+
+// ===== CHANGE PASSWORD =====
+function changePassword(){
+  const current=document.getElementById("currentPassword").value.trim();
+  const newPass=document.getElementById("newPassword").value.trim();
+  const confirm=document.getElementById("confirmPassword").value.trim();
+  if(!current || !newPass || !confirm){
+    document.getElementById("passwordMsg").innerText="All fields are required!";
+    return;
+  }
+  if(newPass!==confirm){
+    document.getElementById("passwordMsg").innerText="New passwords do not match!";
+    return;
+  }
+  google.script.run.withSuccessHandler(msg=>{
+    document.getElementById("passwordMsg").innerText=msg;
+    document.getElementById("currentPassword").value="";
+    document.getElementById("newPassword").value="";
+    document.getElementById("confirmPassword").value="";
+  }).updatePassword(current,newPass);
+}
+</script>
+</body>
+</html>
