@@ -1,0 +1,327 @@
+
+/*******************************
+ * DATABASE CONNECTION
+ *******************************/
+function getConnection() {
+  const props = PropertiesService.getScriptProperties();
+  return Jdbc.getConnection(
+    props.getProperty("DB_URL"),
+    props.getProperty("DB_USER"),
+    props.getProperty("DB_PASS")
+  );
+}
+
+/*******************************
+ * WEB APP ENTRY
+ *******************************/
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile("index")
+    .setTitle("Payroll System")
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+/*********************************
+ * DATABASE CONNECTION
+ *********************************/
+function getConnection() {
+  const props = PropertiesService.getScriptProperties();
+  return Jdbc.getConnection(
+    props.getProperty("DB_URL"),
+    props.getProperty("DB_USER"),
+    props.getProperty("DB_PASS")
+  );
+}
+
+/*********************************
+ * WEB APP ENTRY
+ *********************************/
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('index')
+    .setTitle("Student Grading System")
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/*********************************
+ * ADD STUDENT
+ *********************************/
+function addStudent(data) {
+  const conn = getConnection();
+
+  try {
+    if (!data.studentId || !data.fullName) {
+      throw new Error("Missing student information");
+    }
+
+    const sql = "INSERT INTO students (student_id, full_name) VALUES (?, ?)";
+    const stmt = conn.prepareStatement(sql);
+
+    stmt.setString(1, data.studentId);
+    stmt.setString(2, data.fullName);
+
+    stmt.execute();
+
+    return { success: true };
+
+  } catch (err) {
+    return { success: false, error: err.message };
+
+  } finally {
+    conn.close();
+  }
+}
+
+/*********************************
+ * ADD SCORE
+ *********************************/
+function addScore(data) {
+  const conn = getConnection();
+
+  try {
+    if (!data.studentId || !data.subject || isNaN(data.score)) {
+      throw new Error("Invalid score data");
+    }
+
+    const sql = "INSERT INTO scores (student_id, subject, score) VALUES (?, ?, ?)";
+    const stmt = conn.prepareStatement(sql);
+
+    stmt.setString(1, data.studentId);
+    stmt.setString(2, data.subject);
+    stmt.setFloat(3, data.score);
+
+    stmt.execute();
+
+    return { success: true };
+
+  } catch (err) {
+    return { success: false, error: err.message };
+
+  } finally {
+    conn.close();
+  }
+}
+
+/*********************************
+ * GET RESULTS
+ *********************************/
+function getResults() {
+  const conn = getConnection();
+
+  try {
+    const sql = `
+      SELECT s.student_id, s.full_name,
+             SUM(sc.score) total,
+             AVG(sc.score) average
+      FROM students s
+      LEFT JOIN scores sc ON s.student_id = sc.student_id
+      GROUP BY s.student_id, s.full_name
+    `;
+
+    const rs = conn.createStatement().executeQuery(sql);
+    const data = [];
+
+    while (rs.next()) {
+      const avg = rs.getFloat("average");
+
+      data.push({
+        studentId: rs.getString("student_id"),
+        name: rs.getString("full_name"),
+        total: rs.getFloat("total") || 0,
+        average: avg || 0,
+        grade: assignGrade(avg || 0)
+      });
+    }
+
+    return data;
+
+  } catch (err) {
+    return [];
+
+  } finally {
+    conn.close();
+  }
+}
+
+/*********************************
+ * GRADE LOGIC
+ *********************************/
+function assignGrade(avg) {
+  if (avg >= 90) return "A";
+  if (avg >= 80) return "B";
+  if (avg >= 70) return "C";
+  if (avg >= 60) return "D";
+  return "F";
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-slate-100 p-10">
+
+<h1 class="text-3xl font-bold mb-6">🎓 Student Grading System</h1>
+
+<!-- ADD STUDENT -->
+<div class="bg-white p-5 rounded-2xl shadow mb-6">
+  <h2 class="text-xl font-semibold mb-3">Add Student</h2>
+
+  <input id="studentId" placeholder="Student ID"
+         class="border p-2 rounded w-full mb-2">
+
+  <input id="fullName" placeholder="Full Name"
+         class="border p-2 rounded w-full mb-2">
+
+  <button onclick="addStudent()"
+          class="bg-blue-600 text-white px-4 py-2 rounded">
+    Save Student
+  </button>
+</div>
+
+<!-- ADD SCORE -->
+<div class="bg-white p-5 rounded-2xl shadow mb-6">
+  <h2 class="text-xl font-semibold mb-3">Add Score</h2>
+
+  <input id="scoreStudentId" placeholder="Student ID"
+         class="border p-2 rounded w-full mb-2">
+
+  <input id="subject" placeholder="Subject"
+         class="border p-2 rounded w-full mb-2">
+
+  <input id="score" placeholder="Score" type="number"
+         class="border p-2 rounded w-full mb-2">
+
+  <button onclick="addScore()"
+          class="bg-green-600 text-white px-4 py-2 rounded">
+    Save Score
+  </button>
+</div>
+
+<!-- RESULTS -->
+<div class="bg-white p-5 rounded-2xl shadow">
+  <h2 class="text-xl font-semibold mb-3">Results Dashboard</h2>
+
+  <!-- SEARCH BOX -->
+  <input id="searchBox"
+         onkeyup="filterResults()"
+         placeholder="🔍 Search by ID or Name..."
+         class="border p-2 rounded w-full mb-3">
+
+  <button onclick="loadResults()"
+          class="bg-purple-600 text-white px-4 py-2 rounded mb-3">
+    Load Results
+  </button>
+
+  <table class="w-full border">
+    <thead>
+      <tr class="bg-slate-200">
+        <th class="p-2">ID</th>
+        <th class="p-2">Name</th>
+        <th class="p-2">Total</th>
+        <th class="p-2">Average</th>
+        <th class="p-2">Grade</th>
+      </tr>
+    </thead>
+    <tbody id="resultsTable"></tbody>
+  </table>
+</div>
+
+<script>
+let allResults = [];
+
+/*********************************
+ * ADD STUDENT
+ *********************************/
+function addStudent() {
+  const data = {
+    studentId: document.getElementById("studentId").value.trim(),
+    fullName: document.getElementById("fullName").value.trim()
+  };
+
+  if (!data.studentId || !data.fullName) {
+    alert("Please fill all student fields");
+    return;
+  }
+
+  google.script.run.withSuccessHandler(res => {
+    alert(res.success ? "✅ Student Saved!" : "❌ " + res.error);
+  }).addStudent(data);
+}
+
+/*********************************
+ * ADD SCORE
+ *********************************/
+function addScore() {
+  const data = {
+    studentId: document.getElementById("scoreStudentId").value.trim(),
+    subject: document.getElementById("subject").value.trim(),
+    score: parseFloat(document.getElementById("score").value)
+  };
+
+  if (!data.studentId || !data.subject || isNaN(data.score)) {
+    alert("Please enter valid score data");
+    return;
+  }
+
+  google.script.run.withSuccessHandler(res => {
+    alert(res.success ? "✅ Score Saved!" : "❌ " + res.error);
+  }).addScore(data);
+}
+
+/*********************************
+ * LOAD RESULTS
+ *********************************/
+function loadResults() {
+  google.script.run.withSuccessHandler(data => {
+    allResults = data;
+    renderTable(data);
+  }).getResults();
+}
+
+/*********************************
+ * RENDER TABLE
+ *********************************/
+function renderTable(data) {
+  const table = document.getElementById("resultsTable");
+  table.innerHTML = "";
+
+  if (data.length === 0) {
+    table.innerHTML = `
+      <tr>
+        <td colspan="5" class="p-3 text-center text-gray-500">
+          No results found
+        </td>
+      </tr>`;
+    return;
+  }
+
+  data.forEach(row => {
+    table.innerHTML += `
+      <tr class="border-t">
+        <td class="p-2">${row.studentId}</td>
+        <td class="p-2">${row.name}</td>
+        <td class="p-2">${row.total.toFixed(2)}</td>
+        <td class="p-2">${row.average.toFixed(2)}</td>
+        <td class="p-2 font-bold">${row.grade}</td>
+      </tr>`;
+  });
+}
+
+/*********************************
+ * FILTER RESULTS (LIVE SEARCH)
+ *********************************/
+function filterResults() {
+  const keyword = document.getElementById("searchBox")
+                    .value.toLowerCase();
+
+  const filtered = allResults.filter(student =>
+    student.studentId.toLowerCase().includes(keyword) ||
+    student.name.toLowerCase().includes(keyword)
+  );
+
+  renderTable(filtered);
+}
+</script>
+
+</body>
+</html>
